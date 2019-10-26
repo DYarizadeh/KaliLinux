@@ -1,30 +1,51 @@
 import scapy.all as scapy
 import optparse
 
+#you can do this whole program with scapy.ping(ip)
+#def scan(ip):
+  #scapy.arping(ip)
 
-def get_arguments():
-    parser = optparse.OptionParser()
-    parser.add_option("-t", "--target", dest="target", help="Target IP / IP range.")
-    options, arguments = parser.parse_args()
-    return options
+#scan("ip/24")
+
+def get_arg():
+  parser=optparse.OptionParser()
+  parser.add_option("-t", "--target", dest="target", help="target IP/IP Range")
+  (options, arguments) = parser.parse_args()
+  if not options.target:
+    print("Please specify target ip range, use --help for more info")
+  return options
 
 def scan(ip):
-    arp_request = scapy.ARP(pdst=ip)
-    broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
-    arp_request_broadcast = broadcast/arp_request
-    answered_list = scapy.srp(arp_request_broadcast, timeout=1, verbose=False)[0]
-    clients_list = []
-    for element in answered_list:
-        client_dict = {"ip": element[1].psrc, "mac": element[1].hwsrc}
-        clients_list.append(client_dict)
-    return clients_list
+  #target IP
+  arp_request = scapy.ARP(pdst=ip)
+  
+  #broadcast mac destination
+  broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
+  
+  #put both ip and mac destinaton into one variable
+  arp_request_broadcast = broadcast/arp_request
+  
+  #send the paceket. srp allows us to send packets with Ether and receive response in variable
+  #the srp will return two lists - 1. answered packet 2. unanswered packet
+  #using [0] at the end of the line will indicate capturing the answered packet
+  answered_list=scapy.srp(arp_request_broadcast, timeout=1, verbose=False)[0]
+  
+  client_list=[]
+  for element in answered_list:
+    #scapy.srp answered returns two additonal lists (srp is a nested list) for each ip in the range
+    #the packet that generated the answer and the answer.
+    #we are interested in retriving the answer, so we are printing the
+    #psrc which is answered ip and hwsrc which is the associated mac
+        client_dict={"ip":element[1].psrc, "mac" : element[1].hwsrc}
+        client_list.append(client_dict)
+  return client_list
 
-def print_result(results_list):
-    print("IP\t\t\tMAC Address\n-------------------------------------")
-    for client in results_list:
-        print(client["ip"] + "\t\t" + client["mac"])
+def print_result(result_list):
+  print("IP\t\t\tMAC Address\n------------------------------------------------")
+  for element in result_list:
+    print(element["ip"] + "\t\t\t" + element["mac"])
 
-
-options = get_arguments()
-scan_result = scan(options.target)
+options=get_arg()
+if options.target:
+  scan_result=scan(options.target)
 print_result(scan_result)
